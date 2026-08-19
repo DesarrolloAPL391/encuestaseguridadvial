@@ -16,6 +16,17 @@
 // Capturador global de errores: si algo falla, se ve en pantalla en vez de quedar en blanco.
 window.addEventListener('error', function(ev){
   try{
+    // Ignora errores ajenos a esta página (extensiones del navegador, modo lector,
+    // wallets cripto que inyectan scripts, etc.). Esos llegan sin archivo propio o como
+    // "Script error." genérico por restricción de origen cruzado, y no son fallos reales
+    // de la encuesta.
+    var fname = ev.filename || '';
+    var msgTxt = ev.message || '';
+    var esAjeno = !fname
+      || fname.indexOf(location.origin) !== 0
+      || msgTxt === 'Script error.'
+      || /__firefox__|DarkReader|ethereum|web3/i.test(msgTxt);
+    if (esAjeno) return;
     var msg = '⚠ Error de JavaScript: ' + (ev.message || 'ver consola') +
       (ev.filename ? ' — ' + ev.filename.split('/').pop() + ':' + ev.lineno + ':' + ev.colno : '');
     var box = document.getElementById('jsErrorBox');
