@@ -138,31 +138,49 @@ function renderSurvey(){
 
   if (step === 0){
     const matched = findEmployeeByCedula(generalData.cedula);
-    const revealExtra = !!generalData.cedula && (!!matched || manualEntryMode);
+    const revealCedula = !!(generalData.tipo_persona || "").trim();
+    const revealExtra = revealCedula && !!generalData.cedula && (!!matched || manualEntryMode);
+    const tipoField = generalFields.find(f=>f.id==="tipo_persona");
+    const tipoOpts = tipoField.options.map(o=>`<option value="${o}" ${generalData.tipo_persona===o?"selected":""}>${o}</option>`).join("");
 
     card.innerHTML = `<div class="section-head">
       <span class="section-icon">${ICONS.id}</span>
       <div><span class="step-eyebrow">Paso 1 de ${totalSteps()}</span><h2 class="section-title">Datos generales</h2></div>
     </div>
     <div class="field">
-      <label class="field-label">Cédula</label>
-      <input type="text" id="gf_cedula" inputmode="numeric" autocomplete="off" list="employeeCedulas"
-        placeholder="Escribe tu número de cédula" value="${generalData.cedula||""}">
-      <datalist id="employeeCedulas">${EMPLOYEES.map(e=>`<option value="${e.cedula}">${e.nombre}</option>`).join("")}</datalist>
+      <label class="field-label">Tipo de persona</label>
+      <select id="gf_tipo_persona">
+        <option value="" ${!generalData.tipo_persona?"selected":""}>${tipoField.placeholder}</option>
+        ${tipoOpts}
+      </select>
     </div>
-    <div class="note" id="employeeMatchNote" style="min-height:16px; margin:-6px 0 4px;"></div>
-    <div class="note" id="employeeManualFallback" style="display:none; margin-bottom:8px;">
-      No encontramos esa cédula en la base de empleados activos.
-      <a href="#" id="manualEntryLink">Continuar de forma manual</a>
-    </div>
-    <div id="employeeDuplicateBanner" style="display:none; margin-bottom:14px;">
-      Esta cédula ya tiene una respuesta registrada. Solo se permite una respuesta por persona — no es posible volver a enviar la encuesta.
-    </div>
-    <div id="employeeExtraFields" style="display:${revealExtra ? "block" : "none"};"></div>`;
+    <div id="cedulaWrap" style="display:${revealCedula ? "block" : "none"};">
+      <div class="field">
+        <label class="field-label">Cédula</label>
+        <input type="text" id="gf_cedula" inputmode="numeric" autocomplete="off" list="employeeCedulas"
+          placeholder="Escribe tu número de cédula" value="${generalData.cedula||""}">
+        <datalist id="employeeCedulas">${EMPLOYEES.map(e=>`<option value="${e.cedula}">${e.nombre}</option>`).join("")}</datalist>
+      </div>
+      <div class="note" id="employeeMatchNote" style="min-height:16px; margin:-6px 0 4px;"></div>
+      <div class="note" id="employeeManualFallback" style="display:none; margin-bottom:8px;">
+        No encontramos esa cédula en la base de empleados activos.
+        <a href="#" id="manualEntryLink">Continuar de forma manual</a>
+      </div>
+      <div id="employeeDuplicateBanner" style="display:none; margin-bottom:14px;">
+        Esta cédula ya tiene una respuesta registrada. Solo se permite una respuesta por persona — no es posible volver a enviar la encuesta.
+      </div>
+      <div id="employeeExtraFields" style="display:${revealExtra ? "block" : "none"};"></div>
+    </div>`;
+
+    card.querySelector("#gf_tipo_persona").addEventListener("change", (e)=>{
+      generalData.tipo_persona = e.target.value;
+      if (generalData.tipo_persona !== "Conductor") generalData.ruta = "";
+      renderSurvey();
+    });
 
     const extraWrap = card.querySelector("#employeeExtraFields");
     generalFields
-      .filter(f=>f.id!=="cedula")
+      .filter(f=> f.id!=="cedula" && f.id!=="tipo_persona")
       .filter(f=> f.id!=="ruta" || generalData.tipo_persona === "Conductor")
       .forEach(f=>{
         const div = document.createElement("div");
@@ -181,13 +199,6 @@ function renderSurvey(){
             <input type="text" id="gf_${f.id}" value="${generalData[f.id]||""}"${listAttr}${lockedAttr}>`;
         }
         extraWrap.appendChild(div);
-        if (f.id === "tipo_persona"){
-          div.querySelector("select").addEventListener("change", (e)=>{
-            generalData.tipo_persona = e.target.value;
-            if (generalData.tipo_persona !== "Conductor") generalData.ruta = "";
-            renderSurvey();
-          });
-        }
       });
     const dlNames = document.createElement("datalist");
     dlNames.id = "employeeNames";
@@ -399,6 +410,10 @@ function renderNavButtons(container){
           const el = document.getElementById("gf_"+f.id);
           if (el) generalData[f.id] = el.value;
         });
+        if (!(generalData.tipo_persona || "").trim()){
+          alert("Por favor selecciona si eres Conductor, Administrativo o Contratista.");
+          return;
+        }
         const cedula = (generalData.cedula || "").trim();
         if (!cedula){
           alert("Por favor ingresa tu número de cédula.");
@@ -408,10 +423,6 @@ function renderNavButtons(container){
         if (!matched && !manualEntryMode){
           const fallback = document.getElementById("employeeManualFallback");
           if (fallback) fallback.style.display = "block";
-          return;
-        }
-        if (!(generalData.tipo_persona || "").trim()){
-          alert("Por favor selecciona si eres Conductor, Administrativo o Contratista.");
           return;
         }
         if (generalData.tipo_persona === "Conductor" && !(generalData.ruta || "").trim()){
