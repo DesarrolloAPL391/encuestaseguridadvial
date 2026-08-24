@@ -14,10 +14,12 @@ const ROUTES = [
   "136II","136","193I","135","130","136I","130I","133IIA","133","135I",
   "133II","132I","133I","313","287","132II","134I","135II","134","302",
 ];
+const TIPO_PERSONA_OPTIONS = ["Conductor","Administrativo","Contratista"];
 
 const generalFields = [
   {id:"cedula", label:"Cédula"},
-  {id:"ruta", label:"Ruta", type:"select"},
+  {id:"tipo_persona", label:"Tipo de persona", type:"select", options:TIPO_PERSONA_OPTIONS, placeholder:"Selecciona una opción"},
+  {id:"ruta", label:"Ruta", type:"select", options:ROUTES, placeholder:"Selecciona tu ruta"},
   {id:"nombre", label:"Nombre completo"},
   {id:"cargo", label:"Cargo"},
   {id:"area", label:"Área / dependencia"},
@@ -159,24 +161,34 @@ function renderSurvey(){
     <div id="employeeExtraFields" style="display:${revealExtra ? "block" : "none"};"></div>`;
 
     const extraWrap = card.querySelector("#employeeExtraFields");
-    generalFields.filter(f=>f.id!=="cedula").forEach(f=>{
-      const div = document.createElement("div");
-      div.className = "field";
-      if (f.type === "select"){
-        const opts = ROUTES.map(r=>`<option value="${r}" ${generalData[f.id]===r?"selected":""}>${r}</option>`).join("");
-        div.innerHTML = `<label class="field-label">${f.label}</label>
-          <select id="gf_${f.id}">
-            <option value="" ${!generalData[f.id]?"selected":""}>Selecciona tu ruta</option>
-            ${opts}
-          </select>`;
-      } else {
-        const listAttr = f.id === "nombre" ? ' list="employeeNames" autocomplete="off"' : '';
-        const lockedAttr = matched ? ' readonly' : '';
-        div.innerHTML = `<label class="field-label">${f.label}</label>
-          <input type="text" id="gf_${f.id}" value="${generalData[f.id]||""}"${listAttr}${lockedAttr}>`;
-      }
-      extraWrap.appendChild(div);
-    });
+    generalFields
+      .filter(f=>f.id!=="cedula")
+      .filter(f=> f.id!=="ruta" || generalData.tipo_persona === "Conductor")
+      .forEach(f=>{
+        const div = document.createElement("div");
+        div.className = "field";
+        if (f.type === "select"){
+          const opts = f.options.map(o=>`<option value="${o}" ${generalData[f.id]===o?"selected":""}>${o}</option>`).join("");
+          div.innerHTML = `<label class="field-label">${f.label}</label>
+            <select id="gf_${f.id}">
+              <option value="" ${!generalData[f.id]?"selected":""}>${f.placeholder}</option>
+              ${opts}
+            </select>`;
+        } else {
+          const listAttr = f.id === "nombre" ? ' list="employeeNames" autocomplete="off"' : '';
+          const lockedAttr = matched ? ' readonly' : '';
+          div.innerHTML = `<label class="field-label">${f.label}</label>
+            <input type="text" id="gf_${f.id}" value="${generalData[f.id]||""}"${listAttr}${lockedAttr}>`;
+        }
+        extraWrap.appendChild(div);
+        if (f.id === "tipo_persona"){
+          div.querySelector("select").addEventListener("change", (e)=>{
+            generalData.tipo_persona = e.target.value;
+            if (generalData.tipo_persona !== "Conductor") generalData.ruta = "";
+            renderSurvey();
+          });
+        }
+      });
     const dlNames = document.createElement("datalist");
     dlNames.id = "employeeNames";
     dlNames.innerHTML = EMPLOYEES.map(e=>`<option value="${e.nombre}">`).join("");
@@ -383,7 +395,10 @@ function renderNavButtons(container){
     nextBtn.textContent = "Siguiente";
     nextBtn.onclick = async ()=>{
       if (step === 0){
-        generalFields.forEach(f=> generalData[f.id] = document.getElementById("gf_"+f.id).value);
+        generalFields.forEach(f=>{
+          const el = document.getElementById("gf_"+f.id);
+          if (el) generalData[f.id] = el.value;
+        });
         const cedula = (generalData.cedula || "").trim();
         if (!cedula){
           alert("Por favor ingresa tu número de cédula.");
@@ -395,7 +410,11 @@ function renderNavButtons(container){
           if (fallback) fallback.style.display = "block";
           return;
         }
-        if (!(generalData.ruta || "").trim()){
+        if (!(generalData.tipo_persona || "").trim()){
+          alert("Por favor selecciona si eres Conductor, Administrativo o Contratista.");
+          return;
+        }
+        if (generalData.tipo_persona === "Conductor" && !(generalData.ruta || "").trim()){
           alert("Por favor selecciona la ruta a la que perteneces.");
           return;
         }
@@ -462,11 +481,11 @@ async function fetchAllResponses(){
   if (!sb) return [];
   const { data, error } = await sb
     .from(RESPUESTAS_TABLE)
-    .select("cedula, nombre, cargo, area, ruta, respuestas, submitted_at")
+    .select("cedula, nombre, cargo, area, ruta, tipo_persona, respuestas, submitted_at")
     .order("submitted_at", { ascending:true });
   if (error){ console.error("Error cargando respuestas:", error); return []; }
   return (data || []).map(row => ({
-    general: { nombre: row.nombre, cedula: row.cedula, cargo: row.cargo, area: row.area, ruta: row.ruta },
+    general: { nombre: row.nombre, cedula: row.cedula, cargo: row.cargo, area: row.area, ruta: row.ruta, tipoPersona: row.tipo_persona },
     answers: row.respuestas || {},
     submittedAt: row.submitted_at
   }));
@@ -486,6 +505,7 @@ async function submitSurvey(){
     cargo: (generalData.cargo || "").trim(),
     area: (generalData.area || "").trim(),
     ruta: (generalData.ruta || "").trim(),
+    tipo_persona: (generalData.tipo_persona || "").trim(),
     respuestas: answers
   };
 
@@ -621,7 +641,7 @@ function buildTabulationTables(responses){
 
 function buildRawDataTable(responses){
   const qs = allQuestions();
-  let head = `<th>#</th><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Área</th><th>Ruta</th><th>Fecha envío</th>`;
+  let head = `<th>#</th><th>Nombre</th><th>Cédula</th><th>Tipo de persona</th><th>Cargo</th><th>Área</th><th>Ruta</th><th>Fecha envío</th>`;
   qs.forEach(q=> head += `<th>${q.id.toUpperCase()}</th>`);
 
   let rows = "";
@@ -631,7 +651,7 @@ function buildRawDataTable(responses){
     .forEach((r, idx)=>{
       const g = r.general || {};
       const fecha = r.submittedAt ? new Date(r.submittedAt).toLocaleString("es-CO") : "";
-      rows += `<tr><td>${idx+1}</td><td class="wrap">${g.nombre||""}</td><td>${g.cedula||""}</td><td class="wrap">${g.cargo||""}</td><td class="wrap">${g.area||""}</td><td>${g.ruta||""}</td><td>${fecha}</td>`;
+      rows += `<tr><td>${idx+1}</td><td class="wrap">${g.nombre||""}</td><td>${g.cedula||""}</td><td>${g.tipoPersona||""}</td><td class="wrap">${g.cargo||""}</td><td class="wrap">${g.area||""}</td><td>${g.ruta||""}</td><td>${fecha}</td>`;
       qs.forEach(q=>{
         const val = r.answers ? r.answers[q.id] : undefined;
         let display = "";
