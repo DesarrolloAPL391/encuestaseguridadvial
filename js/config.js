@@ -2,7 +2,7 @@
 const SUPABASE_URL = "https://ggbyeftqatnahlpunqek.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_0F7QGgUjkWBI82qjfutdyQ_wF1e_6Jy";
 const RESPUESTAS_TABLE = "pesv_respuestas";
-const APP_VERSION = "v3";
+const APP_VERSION = "v4";
 
 // El SDK cargado por CDN ya define un global "supabase" (window.supabase), así que la
 // variable propia se llama "sb" para no chocar con ese nombre. Si el SDK no carga
