@@ -1,7 +1,7 @@
 // Service worker: cachea el app shell. Los datos (Supabase) siempre van por red.
 // IMPORTANTE: sube este número (o el texto v1 -> v2...) cada vez que publiques cambios;
 // eso fuerza a borrar la caché vieja y a que todos los usuarios reciban la actualización.
-const CACHE = 'pesv-apl-v4';
+const CACHE = 'pesv-apl-v5';
 const SHELL = [
   '.', 'index.html',
   'css/styles.css',
