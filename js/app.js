@@ -40,7 +40,7 @@ const sections = [
       {id:"q6", text:"6. ¿Cuenta con vehículo propio?", type:"single",
         options:["Sí","No"]},
       {id:"q7", text:"7. Tipo de vehículo que utiliza", type:"single",
-        options:["Motocicleta","Automóvil","Camioneta","Bicicleta"]},
+        options:["Motocicleta","Automóvil","Camioneta","Bicicleta","Ninguno"]},
       {id:"q8", text:"8. ¿Ha tenido en los últimos cinco años algún accidente de tránsito?", type:"single",
         options:["Sí","No"]},
       {id:"q9", text:"9. ¿Ha tenido en los últimos cinco años algún incidente de tránsito con daños materiales pero no personales?", type:"single",
@@ -98,6 +98,14 @@ const roleQuestions = {
   "Conductor": {id:"q25", text:"25. Conductor — señale las conductas de riesgo con las que más se identifica", type:"multi",
     options:["Uso del celular, audífonos, etc. mientras conduce","No respetar las señales de tránsito","Conducir en estado de embriaguez o después de consumir sustancias alucinógenas","Exceso de velocidad","Tomar medicamentos que puedan producir sueño antes de conducir","No usar el cinturón de seguridad","No asegurar adecuadamente la carga en el vehículo","Transitar ocupando varios carriles"]},
 };
+
+// Toda pregunta de opción múltiple lleva "Ninguna de las anteriores" al final
+const NONE_OF_ABOVE = "Ninguna de las anteriores";
+[...sections.flatMap(s=>s.questions), ...Object.values(roleQuestions)].forEach(q=>{
+  if (q.type === "multi" && !q.options.includes(NONE_OF_ABOVE)){
+    q.options.push(NONE_OF_ABOVE);
+  }
+});
 
 // ---------- Estado ----------
 let step = 0; // 0 = datos generales, 1..sections.length = secciones
@@ -329,9 +337,16 @@ function renderQuestion(card, q){
     optDiv.innerHTML = `<input type="${inputType}" name="${q.id}" value="${opt}" ${isChecked?"checked":""}> <span>${opt}</span>`;
     optDiv.querySelector("input").addEventListener("change", (e)=>{
       if (q.type === "multi"){
-        const arr = Array.isArray(answers[q.id]) ? answers[q.id] : [];
-        if (e.target.checked){ if(!arr.includes(opt)) arr.push(opt); }
-        else { const idx = arr.indexOf(opt); if (idx>-1) arr.splice(idx,1); }
+        let arr = Array.isArray(answers[q.id]) ? answers[q.id] : [];
+        if (opt === NONE_OF_ABOVE){
+          // Marcar "Ninguna de las anteriores" desmarca cualquier otra opción, y viceversa
+          arr = e.target.checked ? [NONE_OF_ABOVE] : [];
+        } else if (e.target.checked){
+          arr = arr.filter(v=>v!==NONE_OF_ABOVE);
+          arr.push(opt);
+        } else {
+          const idx = arr.indexOf(opt); if (idx>-1) arr.splice(idx,1);
+        }
         answers[q.id] = arr;
       } else {
         answers[q.id] = opt;
